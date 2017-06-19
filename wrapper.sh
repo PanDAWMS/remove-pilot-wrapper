@@ -1,102 +1,9 @@
 #!/bin/env bash 
 
-WRAPPERVERSION="1.0.0"
+WRAPPERVERSION="1.0.1"
 
 # 
 # A generic wrapper with minimal functionalities
-#
-# input options:
-#   - wrappervo
-#   - wrapperwmsqueue
-#   - wrapperbatchqueue
-#   - wrappergrid
-#   - wrapperpurpose
-#   - wrappertarballurl
-#   - wrapperpilotcodeurl
-#   - wrapperspecialcmd 
-#   - wrapperplugin 
-#   - wrapperpilotcode
-#   - wrapperloglevel
-#   - wrappermode
-#   - wrappertarballchecksum
-#   - wrapperpilotcodechecksum
-#
-# where
-#
-#     - wrappervo is the VO
-#
-#     - wrapperwmsqueue is the wms queue (e.g. the panda siteid)
-#    
-#     - wrapperbatchqueue is the batch queue (e.g. the panda queue)
-#    
-#     - wrappergrid is the grid flavor, i.e. OSG or EGEE (or gLite). 
-#     The reason to include it as an input option,
-#     instead of letting the wrapper to discover by itself
-#     the current platform is to be able to distinguish
-#     between these two scenarios:
-#    
-#       (a) running on local cluster
-#       (b) running on grid, but the setup file is missing
-#     
-#     (b) is a failure and should be reported, whereas (a) is fine.
-#    
-#     A reason to include wrappergrid as an option in this very first wrapper
-#     is that for sites running condor as local batch system, 
-#     the $PATH environment variable is setup only after sourcing the 
-#     OSG setup file. And only with $PATH properly setup 
-#     is possible to perform actions as curl/wget 
-#     to download the rest of files, or python to execute them.
-#    
-#     - wrapperpurpose will be the VO in almost all cases,
-#     but not necessarily when several groups share
-#     the same VO. An example is VO OSG, shared by 
-#     CHARMM, Daya, OSG ITB testing group...
-#    
-#     - wrappertarballurl is the complete url with the wrapper tarball to be downloaded
-#     including the name of the actual tarball file.
-#     DEFAULT: http://dev.racf.bnl.gov/dist/wrapper/wrapper.tar.gz
-#
-#     - wrapperpilotcodeurl is the base url with the pilot code to be downloaded.
-#     It can be a single value, or a list of values split by comma.
-#    
-#     - wrapperspecialcmd is special command to be performed, 
-#     for some specific reason, just after sourcing the Grid environment,
-#     but before doing anything else.
-#     This has been triggered by the need to execute command
-#          $ module load <module_name>
-#     at NERSC after sourcing the OSG grid environment. 
-#    
-#     - wrapperplugin is the plug-in module with the code corresponding to the final wrapper flavor.
-#    
-#     - wrapperpilotcode is the actual pilot code to be executed at the end.
-#     Each VO plugin is supposed to understand the format:
-#     for example, it could just be the basename of an executable to be run as it is,
-#     or it can be the name of tarball, and the plugin will add the ".tar.gz" suffix. 
-#
-#     - wrapperloglevel is a flag to activate high verbosity mode.
-#     Accepted values are debug or info.  
-#     
-#     - wrappermode allows performing all steps but querying and running a real job.
-#     
-#     - wrappertarballchecksum is the checksum of the wrapper tarball
-#     
-#     - wrapperpilotcodechecksum is the checksum of the pilot tarball
-#     
-# ----------------------------------------------------------------------------
-#
-# Note:
-#       before the input options are parsed, they must be re-tokenized
-#       so whitespaces as part of the value 
-#       (i.e. --wrapperspecialcmd='module load osg')
-#       create no confussion and are not taken as they are splitting 
-#       different input options.
-#
-#       The format in the condor submission file (or JDL) to address 
-#       the multi-words values is:
-#
-#          arguments = "--in1=val1 ... --inN=valN --cmd=""module load osg"""
-#
-# ----------------------------------------------------------------------------
 #
 # This first wrapper perform basic actions:
 #      (1)  check the environment, and the availability of basic programs
@@ -108,6 +15,8 @@ WRAPPERVERSION="1.0.0"
 #           as passes all input options to this code.
 #           With passed options, the python code will download
 #           a second tarball with the final pilot code.
+#
+# ----------------------------------------------------------------------------
 #
 # Author jcaballero (AT) bnl.gov
 #    
@@ -173,7 +82,6 @@ f_init(){
 f_check(){
         # function to check the environment 
         # and the basic programs needed to download the tarball
-        f_print_packages
         f_check_env
         f_check_python
         f_check_python32
@@ -185,16 +93,11 @@ f_check(){
         return 0
 }
 
-f_print_packages(){
-        # function to print out the list of RPM packages installed
-        f_print_info_msg "List of installed RPM packages:"
-        rpm -qa | sort
-}
-
 f_check_env(){
         # function to print out the environment
         msg="Environment: "`printenv | sort`
         f_print_info_msg "$msg"
+        f_print_line
 }
 f_check_python(){
         # function to check if program python is installed
@@ -253,26 +156,32 @@ f_check_program(){
 #                 S E T      U P          F U N C T I O N S                 #
 # ------------------------------------------------------------------------- # 
 
-f_setup_grid(){
+f_setup_platform(){
         # Function to source the corresponding 
-        # source file, depending on the grid flavor
-        # The input option is the grid flavor
+        # source file, depending on the platform flavor (grid OSG, grid EGI, HPC...)
+        # The flavor is the input option of the function
 
         GRID=$1
         case $GRID in
                 OSG)
+                        f_print_info_msg "platform value set to OSG."
                         f_setup_osg
                         return $?
                         ;;
                 local|LOCAL|Local)
-                        f_print_warning_msg "GRID value setup to LOCAL, doing nothing."
+                        f_print_info_msg "platform value set to LOCAL. Nothing to do."
+                        return 0
+                        ;;
+                EGI)
+                        f_print_info_msg "platform value set to EGI. Nothing to do."
                         return 0
                         ;;
                 *) 
-                        f_print_warning_msg "GRID value not defined or not recognized"
+                        f_print_warning_msg "platform value not defined or not recognized"
                         return 0
                         ;;
         esac
+        f_print_line
 }
 
 f_setup_osg(){
@@ -285,9 +194,8 @@ f_setup_osg(){
                         source $OSG_GRID/setup.sh
                         return 0 
                 else
-                        #echo "OSG_GRID defined but setup file $OSG_GRID/setup.sh does not exist"
-                        f_print_error_msg "OSG_GRID defined but setup file $OSG_GRID/setup.sh does not exist"
-                        return 1
+                        f_print_warning_msg "OSG_GRID defined but setup file $OSG_GRID/setup.sh does not exist"
+                        return 0
                 fi
         else
                 echo "No OSG setup script found. OSG_GRID='$OSG_GRID'"
@@ -305,79 +213,55 @@ f_special_cmd(){
         if [ "$1" != "" ]; then
                 msg='Executing special setup command: '"$@"
                 f_print_info_msg "$msg" 
+
+                # run the special cmd
                 $@
-                return $?
+                rc=$?
+
+                msg='Checking again the environment after running special setup command: '"$@"
+                f_print_info_msg "$msg" 
+                f_check
+
+                return $rc
         fi 
 }
-
 
 # ------------------------------------------------------------------------- #  
 #                P A R S I N G    I N P U T    O P T I O N S                #
 # ------------------------------------------------------------------------- # 
-
-f_usage(){
-        f_print_line
-        echo
-        echo "wrapper.sh Usage:" 
-        echo
-        echo " ./wrapper.sh --wrappervo=<vo> --wrapperwmsqueue=<site_name> --wrapperbatchqueue=<queue_name> \
-[--wrappergrid=<grid_flavor> ] \
-[--wrapperpurpose=<application_type>] \
-[--wrappertarballurl=<wrapper_tarball_url>] \
-[--wrapperpilotcodeurl=<wrapper_pilot_tarball_url>] \
-[--wrapperspecialcmd=<special_setup_command>] \
-[--wrapperplugin=<plugin_name>]\
-[--wrapperpilotcode=<pilot_code]\
-[--wrapperloglevel=debug|info]\
-[--wrappermode=<operation mode>]\
-[--wrappertarballchecksum=<checksum of the wrapper tarball>]\
-[--wrapperpilotcodechecksum=<checksum of the pilot tarball>]"
-}
 
 f_setup_defaults_inputs(){
         # setups default values for the input options. 
         # They can then be overriden by the values
         # provided as input. 
 
-        WRAPPERTARBALLURL=http://dev.racf.bnl.gov/dist/wrapper/wrapper.tar.gz
+        WRAPPERTARBALLURI=http://dev.racf.bnl.gov/dist/wrapper/latest-wrapper-$WRAPPERVERSION
 }
 
 f_parse_arguments(){
         # Function to parse the command line input options.
-        #         --wrappervo=...
-        #         --wrapperwmsqueue=...
-        #         --wrapperbatchqueue=...
-        #         --wrappergrid=...
-        #         --wrapperpurpose=...
-        #         --wrappertarballurl=...
-        #         --wrapperpilotcodeurl=...
-        #         --wrapperspecialcmd=...
-        #         --wrapperplugin=...
-        #         --wrapperpilotcode=...
-        #         --wrapperloglevel=...
-        #         --wrappermode=...
-        #         --wrappertarballchecksum=...
-        #         --wrapperpilotcodechecksum=...
-        # An error/warning message is displayed in case a different 
-        # An error/warning message is displayed in case a different 
-        # An error/warning message is displayed in case a different 
-        # input option is passed
+        # It only pays attention to the variables for this wrapper.sh 
+        #       --wrapperplatform
+        #       --wrapperspecialcmd
+        #       --wrappertarballuri
+        #       --wrappertarballchecksum
         #
         # Before parsing the inputs, possible defaults values are setup. 
         #
 
-        # NOTE:
-        # when the input is not one of the expected 
-        # a warning message is displayed, and that is. 
-        # These unexpected input option can be specific for the pilot.
-        # If finally a dedicated input option to pass info 
-        # to the pilots (i.e. pythonwrapperopts), then the warning message
-        # will be replaced by an error message and the function
-        # will return a RC != 0
-
         f_setup_defaults_inputs
 
-        # first, the input options are re-tokenized to parse properly whitespaces
+        # before the input options are parsed, they must be re-tokenized
+        # so whitespaces as part of the value 
+        #       (i.e. --wrapperspecialcmd='module load osg')
+        # create no confussion and are not taken as they are splitting 
+        # different input options.
+        #
+        # The format in the condor submission file (or JDL) to address 
+        # the multi-words values is:
+        #
+        #       arguments = "--in1=val1 ... --inN=valN --cmd=""module load osg"""
+
         items=
         for i in "$@"
         do
@@ -385,62 +269,35 @@ f_parse_arguments(){
         done
         eval set -- $items
 
-        # all unrecognized options are collected in a single variable
+        # the --wrapper input options not meant for this wrapper but for the modular python code
+        MODULARWRAPPEROPTS=""
+        # all the unrecognized input options. Most probably for the payload code
         unexpectedopts=""
 
         for WORD in "$@" ; do
                 case $WORD in
-                        --*)  true ;
+                        --wrapper*)  true ;
                                 case $WORD in
-                                        --wrappervo=*) 
-                                                WRAPPERVO=${WORD/--wrappervo=/}
-                                                shift ;;
-                                        --wrapperwmsqueue=*) 
-                                                WRAPPERWMSQUEUE=${WORD/--wrapperwmsqueue=/}
-                                                shift ;;
-                                        --wrapperbatchqueue=*) 
-                                                WRAPPERBATCHQUEUE=${WORD/--wrapperbatchqueue=/}
-                                                shift ;;
-                                        --wrappergrid=*)
-                                                WRAPPERGRID=${WORD/--wrappergrid=/}
-                                                shift ;;
-                                        --wrapperpurpose=*)
-                                                WRAPPERPURPOSE=${WORD/--wrapperpurpose=/}
-                                                shift ;;
-                                        --wrappertarballurl=*) 
-                                                WRAPPERTARBALLURL=${WORD/--wrappertarballurl=/}
-                                                shift ;;
-                                        --wrapperpilotcodeurl=*) 
-                                                WRAPPERPILOTCODEURL=${WORD/--wrapperpilotcodeurl=/}
+                                        --wrapperplatform=*)
+                                                WRAPPERPLATFORM=${WORD/--wrapperplatform=/}
                                                 shift ;;
                                         --wrapperspecialcmd=*) 
                                                 WRAPPERSPECIALCMD=${WORD/--wrapperspecialcmd=/}
                                                 shift ;;
-                                        --wrapperplugin=*) 
-                                                WRAPPERPLUGIN=${WORD/--wrapperplugin=/}
-                                                shift ;;
-                                        --wrapperpilotcode=*) 
-                                                WRAPPERPILOTCODE=${WORD/--wrapperpilotcode=/}
-                                                shift ;;
-                                        --wrapperloglevel=*) 
-                                                WRAPPERLOGLEVEL=${WORD/--wrapperloglevel=/}
-                                                shift ;;
-                                        --wrappermode=*)
-                                                WRAPPERMODE=${WORD/--wrappermode=/}
+                                        --wrappertarballuri=*) 
+                                                WRAPPERTARBALLURI=${WORD/--wrappertarballuri=/}
                                                 shift ;;
                                         --wrappertarballchecksum=*)
                                                 WRAPPERTARBALLCHECKSUM=${WORD/--wrappertarballchecksum=/}
                                                 shift ;;
-                                        --wrapperpilotcodechecksum=*)
-                                                WRAPPERPILOTCODECHECKSUM=${WORD/--wrapperpilotcodechecksum=/}
-                                                shift ;;
-                                        *) unexpectedopts=${unexpectedopts}" "$WORD 
+                                        *) MODULARWRAPPEROPTS=${MODULARWRAPPEROPTS}" "$WORD 
                                            shift ;;     
                                 esac ;;
-                        *) unexpectedopts=${unexpectedopts}" "$WORD 
+                        *) unexpectedopts=${unexpectedopts}" "$WORD
                            shift ;;
                 esac
         done
+        f_build_extra_opts
         f_print_options
         return 0
 }
@@ -448,41 +305,15 @@ f_parse_arguments(){
 f_print_options(){
         # printing the input options
         f_print_info_msg "Wrapper input options:"
-        echo " vo: "$WRAPPERVO
-        echo " site: "$WRAPPERWMSQUEUE
-        echo " queue: "$WRAPPERBATCHQUEUE
-        echo " grid flavor: "$WRAPPERGRID
-        echo " purpose: "$WRAPPERPURPOSE
-        echo " code url: "$WRAPPERTARBALLURL
-        echo " special commands: "$WRAPPERSPECIALCMD
-        echo " plugin module: "$WRAPPERPLUGIN
-        echo " pilot code: "$WRAPPERPILOTCODE
-        echo " debug mode: "$WRAPPERLOGLEVEL
-        echo " operation mode: "$WRAPPERMODE
-        echo " wrapper tarball checksum: "$WRAPPERTARBALLCHECKSUM
-        echo " pilot tarball checksum: "$WRAPPERPILOTCODECHECKSUM
-        if [ "$unexpectedopts" != "" ]; then
-                # warning message for unrecognized input options
-                f_print_warning_msg "Unrecognized input options"
-                echo $unexpectedopts
-        fi
+
+        [ -n "$WRAPPERPLATFORM" ] && echo " input option for platform flavor: "$WRAPPERPLATFORM
+        [ -n "$WRAPPERSPECIALCMD" ] && echo " input option for special command: "$WRAPPERSPECIALCMD
+        [ -n "$WRAPPERTARBALLURI" ] && echo " input option for modular wrapper tarball URL: "$WRAPPERTARBALLURI
+        [ -n "$WRAPPERTARBALLCHECKSUM" ] && echo " input option for modular wrapper tarball checksum: "$WRAPPERTARBALLCHECKSUM
+        [ -n "$MODULARWRAPPEROPTS" ] && echo " list of input options for modular wrapper: "$MODULARWRAPPEROPTS
+        [ -n "$extraopts" ] && echo " list of extra input options for modular wrapper: "$extraopts
         f_print_line
 
-        f_check_mandatory_option "SITE" $WRAPPERWMSQUEUE
-        f_check_mandatory_option "QUEUE" $WRAPPERBATCHQUEUE
-        f_check_mandatory_option "CODE URL" $WRAPPERTARBALLURL
-
-}
-
-f_check_mandatory_option(){
-        # check if every mandatory input option has a value. 
-        # A message is displayed and the program exits otherwise.
-
-        if [ "$2" == "" ]; then
-                f_print_error_msg "$1 has no value"
-                f_usage
-                f_exit -1
-        fi
 }
 
 f_build_extra_opts(){
@@ -496,65 +327,6 @@ f_build_extra_opts(){
         done
 }
 
-f_build_pythonwrapper_opts(){
-        # Not all input options should be passed to the python wrapper. 
-        # The complete list of input options to be passed to the python script
-        # is created here. 
-
-        f_build_extra_opts
-
-        pythonwrapperopts=""
-        pythonwrapperopts=${pythonwrapperopts}" --wrappervo="$WRAPPERVO
-        pythonwrapperopts=${pythonwrapperopts}" --wrapperwmsqueue="$WRAPPERWMSQUEUE
-        pythonwrapperopts=${pythonwrapperopts}" --wrapperbatchqueue="$WRAPPERBATCHQUEUE
-        pythonwrapperopts=${pythonwrapperopts}" --wrappergrid="$WRAPPERGRID
-        pythonwrapperopts=${pythonwrapperopts}" --wrapperpurpose="$WRAPPERPURPOSE
-        pythonwrapperopts=${pythonwrapperopts}" --wrappertarballurl="$WRAPPERTARBALLURL
-        pythonwrapperopts=${pythonwrapperopts}" --wrapperpilotcodeurl="$WRAPPERPILOTCODEURL
-        pythonwrapperopts=${pythonwrapperopts}" --wrapperplugin="$WRAPPERPLUGIN
-        pythonwrapperopts=${pythonwrapperopts}" --wrapperpilotcode="$WRAPPERPILOTCODE
-        pythonwrapperopts=${pythonwrapperopts}" --wrapperloglevel="$WRAPPERLOGLEVEL
-        pythonwrapperopts=${pythonwrapperopts}" --wrappermode="$WRAPPERMODE
-        pythonwrapperopts=${pythonwrapperopts}" --wrappertarballchecksum="$WRAPPERTARBALLCHECKSUM
-        pythonwrapperopts=${pythonwrapperopts}" --wrapperpilotcodechecksum="$WRAPPERPILOTCODECHECKSUM
-        pythonwrapperopts=${pythonwrapperopts}" "$extraopts
-
-}
-
-# ------------------------------------------------------------------------- # 
-#                           M O N I T O R                                   #
-# ------------------------------------------------------------------------- # 
-
-f_monping() {
-    #CMD="curl -fksS --connect-timeout 10 --max-time 20 ${APFMON}$1/$APFFID/$APFCID/$2"
-
-    if [ "$1" == "running" ]; then 
-        CMD="curl -ksS -d state=$1 --connect-timeout 10 --max-time 20 ${APFMON}/jobs/${APFFID}:${APFCID}"
-    fi
-    if [ "$1" == "exiting" ]; then 
-        CMD="curl -ksS -d state=$1 -d rc=$2 --connect-timeout 10 --max-time 20 ${APFMON}/jobs/${APFFID}:${APFCID}"
-    fi
-
-    echo "Monitor ping: $CMD"
-    
-    NTRIALS=0
-    MAXTRIALS=1
-    DELAY=30
-    while [ $NTRIALS -lt "$MAXTRIALS" ] ; do
-        out=`$CMD`
-        if [ $? -eq 0 ]; then
-            echo "Monitor ping: out=$out" 
-            NTRIALS="$MAXTRIALS"
-        else
-            echo "Monitor ping: ERROR: out=$out"
-            echo "Monotor ping: http_proxy=$http_proxy"
-            NTRIALS=$(($NTRIALS+1))
-            echo "Trial number=$NTRIALS"
-            sleep $DELAY
-        fi
-    done
-}
-
 # ------------------------------------------------------------------------- #  
 #    G E T   W R A P P E R    P L U G I N S    T A R B A L L                #
 # ------------------------------------------------------------------------- # 
@@ -562,24 +334,24 @@ f_monping() {
 f_download_wrapper_tarball(){
         # donwload a tarball with scripts in python
         # to complete the wrapper actions chain
-        # The address string (WRAPPERTARBALLURL) can actually be a list of comma-split URLs.
+        # The address string (WRAPPERTARBALLURI) can actually be a list of comma-split URLs.
         # This function splits that strings and tries them one by one. 
 
-        f_print_info_msg "Getting the wrapper tarball from $WRAPPERTARBALLURL"
+        f_print_info_msg "Getting the wrapper tarball from $WRAPPERTARBALLURI"
 
-        LISTURLS=$(echo $WRAPPERTARBALLURL | tr "," " ")
-        for WRAPPERTARBALLURLTRIAL in $LISTURLS
+        LISTURIS=$(echo $WRAPPERTARBALLURI | tr "," " ")
+        for WRAPPERTARBALLTRIAL in $LISTURIS
         do
 
                 # getting the file basename
-                #WRAPPERTARBALLNAME=`/bin/basename $WRAPPERTARBALLURLTRIAL`
+                #WRAPPERTARBALLNAME=`/bin/basename $WRAPPERTARBALLTRIAL`
                 # To be able to use links for the wrapper tarball names, 
                 # where the URL does not match the name of the file being downloaded,
                 # we need to use a generic tarballname
                 WRAPPERTARBALLNAME=wrapper.tar.gz
                
 
-                f_print_info_msg "Trying with tarball from $WRAPPERTARBALLURLTRIAL"
+                f_print_info_msg "Trying with tarball from $WRAPPERTARBALLTRIAL"
                 f_download_wrapper_tarball_trial
                 rc=$?
                 if [ $rc -eq 0 ]; then
@@ -593,13 +365,13 @@ f_download_wrapper_tarball(){
 
 f_download_wrapper_tarball_trial(){
         # Tries to donwload a tarball with scripts in python for each 
-        # field in original WRAPPERTARBALLURL
+        # field in original WRAPPERTARBALLURI
 
-        f_print_info_msg "Getting the wrapper tarball from $WRAPPERTARBALLURLTRIAL"
+        f_print_info_msg "Getting the wrapper tarball from $WRAPPERTARBALLTRIAL"
 
-        if [ ${WRAPPERTARBALLURLTRIAL:0:5} == "http:" ]; then
+        if [ ${WRAPPERTARBALLTRIAL:0:5} == "http:" ]; then
             f_download_wrapper_tarball_trial_from_URL
-        elif [ ${WRAPPERTARBALLURLTRIAL:0:5} == "file:" ]; then
+        elif [ ${WRAPPERTARBALLTRIAL:0:5} == "file:" ]; then
             f_download_wrapper_tarball_trial_from_disk
         fi
 
@@ -615,8 +387,8 @@ f_download_wrapper_tarball_trial(){
 f_download_wrapper_tarball_trial_from_URL(){
         # downloads the tarball from an URL
 
-        cmd="curl  --connect-timeout 20 --max-time 120 -s -S $WRAPPERTARBALLURLTRIAL -o $WRAPPERTARBALLNAME"
-        echo $cmd
+        cmd="curl  --connect-timeout 20 --max-time 120 -s -S $WRAPPERTARBALLTRIAL -o $WRAPPERTARBALLNAME"
+        f_print_info_msg "command to download the wrapper tarball: $cmd"
         $cmd
         rc=$?
         return $rc
@@ -624,16 +396,16 @@ f_download_wrapper_tarball_trial_from_URL(){
 
 f_download_wrapper_tarball_trial_from_disk(){
         # copies the tarball from disk
-        # WRAPPERTARBALLURLTRIAL looks like 
+        # WRAPPERTARBALLTRIAL looks like 
         #       file:///path/to/wrapper
         # First, we need to get the real path 
         # by removing the first 6 chars
         # and then copy
 
         # getting the real path
-        WRAPPERTARBALLPATHTRIAL=${WRAPPERTARBALLURLTRIAL:7}
+        WRAPPERTARBALLPATHTRIAL=${WRAPPERTARBALLTRIAL:7}
         cmd="cp $WRAPPERTARBALLPATHTRIAL ./$WRAPPERTARBALLNAME"
-        echo $cmd
+        f_print_info_msg "command to copy from filesystem the wrapper tarball: $cmd"
         $cmd
         rc=$?
         return $rc
@@ -676,10 +448,14 @@ f_check_tarball(){
 
 f_untar_wrapper_tarball(){
         # untar the wrapper tarball and remove the original file
+        # The tarball is untarred in a directory ./wrapperplugins/        
+
         f_print_info_msg "Untarring the wrapper tarball"
-        tar zxvf $WRAPPERTARBALLNAME
+        mkdir wrapperplugins
+        tar zxvf $WRAPPERTARBALLNAME -C wrapperplugins
+        rc=$?
         rm $WRAPPERTARBALLNAME
-        return $?
+        return $rc
 }
 
 
@@ -702,9 +478,6 @@ f_exit(){
         
         f_print_info_msg "exiting with RC = $RETVAL"
 
-        # notify the monitor just after execution
-        f_monping exiting $rc
-
         exit $RETVAL
 }
 
@@ -718,12 +491,13 @@ f_invoke_wrapper(){
         # We run it with &
         # so the shell is released and PID can be calculated
         # and therefore can be used to propagate a SIGTERM if needed.
+        # NOTE: the tarball has been previously untarred in a directory ./wrapperplugins/
 
         f_print_info_msg "Executing wrapper.py ..." 
         STARTTIME=`date +%s`
 
         WRAPPERNAME="wrapper.py"
-        $PYTHON ./$WRAPPERNAME $@ &
+        $PYTHON ./wrapperplugins/$WRAPPERNAME $@ &
         PID=$!
         f_print_info_msg "wrapper.py runs as process PID=$PID"
         wait $PID
@@ -753,7 +527,7 @@ f_handle_signal(){
         # Note: it is not possible to trap SIGKILL (signal 9)
 
         SIGNAL_TRAPPED=$1
-        f_print_error_msg "Catching a SIGTERM signal. Propagating it to process $PID"
+        f_print_error_msg "Catching a SIGNAL ${SIGNAL_TRAPPED}. Propagating it to process $PID"
         kill -$SIGNAL_TRAPPED $PID
         wait
         # we have here a second wait command. 
@@ -808,9 +582,6 @@ f_infiniteloop(){
 #                           M A I N                                         # 
 # ------------------------------------------------------------------------- #  
 
-# notify the monitor
-f_monping running
-
 f_init
 
 # --- parsing input options and initial tests ---
@@ -821,7 +592,7 @@ if [ $rc -ne 0 ]; then
 fi
 
 # --- setting up environment ---
-f_setup_grid $WRAPPERGRID
+f_setup_platform $WRAPPERPLATFORM
 rc=$?
 if [ $rc -ne 0 ]; then
         f_exit $rc
@@ -856,9 +627,6 @@ if [ $rc -ne 0 ]; then
         f_exit $rc
 fi
 
-# prepare the input options
-f_build_pythonwrapper_opts
-
 # invoking the python wrapper
 trap 'f_handle_signal 15' SIGTERM
 trap 'f_handle_signal 3' SIGQUIT 
@@ -867,7 +635,7 @@ trap 'f_handle_signal 30' SIGXCPU
 trap 'f_handle_signal 16' SIGUSR1
 trap 'f_handle_signal 10' SIGBUS
 
-f_invoke_wrapper $pythonwrapperopts
+f_invoke_wrapper $MODULARWRAPPEROPTS $extraopts
 rc=$?
 
 # exit
