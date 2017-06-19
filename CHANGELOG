@@ -1,3 +1,24 @@
+1.0.0
+
+* renamed 0.9.15 to 1.0.0
+
+0.9.16
+
+* added EGI to list of valid platforms
+* the tarball is untarred in a directory ./wrapperplugins/
+* input variable --wrappertarballurl renamed --wrappertarballuri
+* calling again f_check() from f_special_cmd()
+* not printing the list of RPMs. To be done at the python code
+* not aborting if file $OSG_GRID/setup.sh does not exist. Just print out a warning.
+* the default wrapper tarball to be download, if no input option for it is passed, is latest-wrapper-$WRAPPERVERSION
+* printing list of RPMs only if program rpm exists
+* input variable --wrappergrid renamed --wrapperplatform
+* inline documentation for all input options removed, so no need to update when new input options are added
+* usage() function removed, so no need to update when new input options are added
+* deleted calls to APF monitor
+* not checking for mandatory input options
+* f_setup_grid() renamed f_setup_platform()
+
 0.9.15
 
 * fixed value for the variable WRAPPERTARBALLNAME
