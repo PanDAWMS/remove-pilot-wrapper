@@ -1,0 +1,41 @@
+0.9.15
+
+* fixed value for the variable WRAPPERTARBALLNAME
+
+0.9.14
+
+* adding more SIGNALS handling: SIGQUIT SIGSEGV SIGXCPU SIGUSR1 SIGBUS
+
+0.9.13
+
+* some minor improvements in the messages printed out
+* added option -f to command hostname
+* variable WRAPPERTARBALLNAME calculated at the top,
+  instead of the most inner download function
+
+0.9.12
+
+* removed dependency  panda-autopyfactory from setup.cfg
+* print out of installed RPM packages
+* 2 new variables for wrapper tarball checksum and pilotcode tarball checksum
+* when needed, checking the wrapper tarball checksum
+
+0.9.11
+
+* wrappervlimit removed
+* typos fixed
+
+0.9.10
+
+* code and documentation related ulimit deleted
+* fixing the number of hours in the report on the payload runtime
+* error message when there is OSG_GRID/setup file sent to stdout+stderr
+* f_limits call disabled
+* allowing getting the wrapper plugin tarball from disk, not only URL
+* Adding a second wait command inside the trap function. 
+* passing the PID to wait command. 
+* passing also the RC in curl command to the monitor, when exiting
+* removed single quotes around data in monitor call 
+* removed -f from the curl command in monitor call
+
+0.9.9
