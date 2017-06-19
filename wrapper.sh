@@ -1,6 +1,6 @@
 #!/bin/env bash 
 
-WRAPPERVERSION="1.0.1"
+WRAPPERVERSION="1.0.3"
 
 # 
 # A generic wrapper with minimal functionalities

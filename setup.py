@@ -3,7 +3,7 @@
 # Setup prog for wrapper executable 
 #
 #
-release_version='1.0.1'
+release_version='1.0.3'
 
 import os
 import sys
