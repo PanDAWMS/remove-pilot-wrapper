@@ -18,7 +18,7 @@ from distutils.command.install_data import install_data as install_data_org
 
 docs_files = ['docs/%s' %file for file in os.listdir('docs') if os.path.isfile('docs/%s' %file)]
 
-executable = ['wrapper-%s.sh' %release_version,]
+executable = ['wrapper.sh',]
 
 rpm_data_files=[ ('/usr/libexec', executable),                                        
                  ('/usr/share/doc/wrapper', docs_files),                                        
