@@ -631,9 +631,9 @@ fi
 trap 'f_handle_signal 15' SIGTERM
 trap 'f_handle_signal 3' SIGQUIT 
 trap 'f_handle_signal 11' SIGSEGV
-trap 'f_handle_signal 30' SIGXCPU
-trap 'f_handle_signal 16' SIGUSR1
-trap 'f_handle_signal 10' SIGBUS
+trap 'f_handle_signal 24' SIGXCPU
+trap 'f_handle_signal 10' SIGUSR1
+trap 'f_handle_signal 7' SIGBUS
 
 f_invoke_wrapper $MODULARWRAPPEROPTS $extraopts
 rc=$?
