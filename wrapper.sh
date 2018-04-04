@@ -215,7 +215,8 @@ f_special_cmd(){
                 f_print_info_msg "$msg" 
 
                 # run the special cmd
-                $@
+                cmd=$@
+                eval "$cmd"
                 rc=$?
 
                 msg='Checking again the environment after running special setup command: '"$@"
